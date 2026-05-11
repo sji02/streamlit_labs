@@ -47,7 +47,7 @@ if uploaded_confirmed and uploaded_deaths and uploaded_recovered:
         korea_series = korea_df.sum().reset_index()
 
         # 열 이름 지정
-        korea_series.columns = ['date', 'value_name']
+        korea_series.columns = ['date', value_name]
 
         # 날짜 문자열 --> datetime 형 변환 
         korea_series['date'] = pd.to_datetime(korea_series['date'], format='%m/%d/%y')
@@ -108,8 +108,6 @@ if uploaded_confirmed and uploaded_deaths and uploaded_recovered:
             )
             st.plotly_chart(fig, width='stretch')
 
-
-
         # 일일 신규 수치 (막대 그래프) 
         st.subheader("🆕 일일 증가량 그래프")
 
@@ -138,9 +136,46 @@ if uploaded_confirmed and uploaded_deaths and uploaded_recovered:
                 y=selected_new_cols,
                 labels={col: kor for kor, col in new_label_map.items()}
             )
-            st.plotly_chart(fig_new, width='stretch')    
+            st.plotly_chart(fig_new, width='stretch')
 
+    # 12. tab2 : 통계 요약
+    with tab2:
+        st.subheader('일자별 통계 테이블')
+        # 최근 10일 데이터만 표시
+        st.dataframe(df_merged.tail(10), width='stretch')
 
+    # 13. tab3 : 비율 분석
+    with tab3:
+        st.subheader('최신일 기준 회복률 / 치명률')
+
+        # 가장 최근 날짜 데이터 --> 인덱싱 --> iloc[-1] --> 맨 끝
+        latest = df_merged.iloc[-1]
+        confirmed = latest['confirmed']
+        deaths = latest['deaths']
+        recovered = latest['recovered']
+
+        # 비율 계산 (0 나누기 방지 : 확진자가 0이면 비율도 0으로 처리)
+        recovery_rate = (recovered / confirmed) * 100 if confirmed else 0
+        fatality_rate = (deaths / confirmed) * 100 if confirmed else 0
+
+        # 화면을 2열로 균등분할
+        col1, col2 = st.columns(2)
+
+        # st.metric : 수치를 강조해서 보여주는 카드형 위젯
+        col1.metric('회복률', f'{recovery_rate:.2f} %')
+        col2.metric('치명률', f'{fatality_rate:.2f} %')
+
+        st.subheader('감염자 분포 비율')
+
+        # 파이차트용 데이터 직접 생성
+        # active(격리중) = 확진자 - 회복자 - 사망자 (현재 치료/격리 중인 인원)
+        pie_df = pd.DataFrame({
+            'category':['회복자', '사망자', '격리중'],
+            'count':[recovered, deaths, confirmed - recovered - deaths]
+        })
+
+        fig_pie = px.pie(pie_df, names='category', values='count', title='감염자 분포')
+        st.plotly_chart(fig_pie, width='stretch')
 
 
 # 파일 미업로드 시 상태 안내 메세지
